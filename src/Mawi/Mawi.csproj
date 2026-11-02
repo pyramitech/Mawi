@@ -1,0 +1,74 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">14.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+	</PropertyGroup>
+
+	<!-- NuGet package -->
+	<PropertyGroup>
+		<PackageId>Mawi</PackageId>
+		<Version>1.0.0</Version>
+		<Authors>Pyrami Technologies</Authors>
+		<Company>Pyrami Technologies</Company>
+		<Product>Mawi</Product>
+		<Copyright>Copyright (c) Pyrami Technologies</Copyright>
+		<Description>A .NET MAUI UI framework that renders the whole interface into a single WebView. MAUI-style views (WLabel, WGrid, WStackLayout, ...) with XAML and a fluent C# API, {w:Bind} data binding on plain CLR properties, Shell navigation, virtualized lists, and Web Animations driven from C#.</Description>
+		<PackageTags>maui;dotnet-maui;ui;webview;xaml;virtualization;animation;android;ios;maccatalyst;windows</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/pyramitech/Mawi</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/pyramitech/Mawi</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<!-- <PackageIcon>icon.png</PackageIcon> -->
+
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<!-- public members without xml docs; drop this once the API is fully documented -->
+		<NoWarn>$(NoWarn);CS1591</NoWarn>
+
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<!-- source link takes the commit and the source mapping from the enclosing git repo's
+		     remote, regardless of RepositoryUrl. only enable it when the release folder is itself
+		     the repo root (a clone of the public repository), never when it is nested in another -->
+		<MawiIsRepoRoot Condition="Exists('$(MSBuildThisFileDirectory)..\..\.git')">true</MawiIsRepoRoot>
+		<PublishRepositoryUrl Condition="'$(MawiIsRepoRoot)' == 'true'">true</PublishRepositoryUrl>
+		<EnableSourceLink Condition="'$(MawiIsRepoRoot)' != 'true'">false</EnableSourceLink>
+		<EnableSourceControlManagerQueries Condition="'$(MawiIsRepoRoot)' != 'true'">false</EnableSourceControlManagerQueries>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<Deterministic>true</Deterministic>
+		<!-- maps local source paths to /_/ so the package doesn't embed the build machine's paths -->
+		<ContinuousIntegrationBuild Condition="'$(_IsPacking)' == 'true' or '$(CI)' == 'true' or '$(TF_BUILD)' == 'true' or '$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+		<!-- with source link off there is no SourceRoot to map from, so map the project explicitly -->
+		<PathMap Condition="'$(_IsPacking)' == 'true' and '$(EnableSourceLink)' == 'false'">$(MSBuildProjectDirectory)=/_/</PathMap>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="base.html" LogicalName="Mawi.base.html" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- regular builds use the installed workload's version, so the library and the gallery
+		     agree (a mismatch breaks the WinUI resource merge). the package instead depends on the
+		     lowest supported MAUI 9 release: requiring more than an app's own $(MauiVersion)
+		     surfaces as an NU1605 downgrade error in that app. dotnet pack sets _IsPacking -->
+		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" Condition="'$(_IsPacking)' != 'true'" />
+		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.10" Condition="'$(_IsPacking)' == 'true'" />
+		<PackageReference Include="System.IO.Hashing" Version="9.0.4" />
+	</ItemGroup>
+
+</Project>

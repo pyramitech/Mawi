@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<w:WStackLayout xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                xmlns:w="clr-namespace:Mawi.Views;assembly=Mawi"
+                xmlns:local="clr-namespace:Mawi.Gallery.Pages"
+                x:Class="Mawi.Gallery.Pages.BindingPage"
+                Spacing="18"
+                Padding="28,24">
+
+    <w:WLabel Text="Data Binding" TextColor="#1D2433" FontSize="26" FontWeight="700"/>
+    <w:WLabel Text="This page is XAML. {w:Bind} attaches to plain CLR properties — no BindableProperty machinery, and it costs nothing unless it is used."
+              TextColor="#5A6478" FontSize="14" LineBreakMode="WordWrap"/>
+
+    <w:WStackLayout Spacing="10" BackgroundColor="White" BorderRadius="12" Padding="18,16">
+        <w:WLabel Text="Two-way" TextColor="#1D2433" FontSize="17" FontWeight="600"/>
+        <w:WEntry Text="{w:Bind Name}" TextColor="#1D2433" FontSize="15"
+                  BackgroundColor="#EEF1F6" BorderRadius="8" Padding="12,10"/>
+        <w:WLabel Text="{w:Bind Name, StringFormat='Hello, {0}!'}" TextColor="#1D2433" FontSize="15"/>
+        <w:WLabel Text="{w:Bind Name, Converter={x:Static local:BindingPage.Upper}}"
+                  TextColor="#5B8DEF" FontSize="15" FontWeight="600" CharacterSpacing="1"/>
+    </w:WStackLayout>
+
+    <w:WStackLayout Spacing="10" BackgroundColor="White" BorderRadius="12" Padding="18,16">
+        <w:WLabel Text="One-way from the viewmodel" TextColor="#1D2433" FontSize="17" FontWeight="600"/>
+        <w:WLabel Text="{w:Bind Count, StringFormat='The button was clicked {0} times'}" TextColor="#1D2433" FontSize="15"/>
+        <w:WButton x:Name="IncrementBtn" Text="+1 on the viewmodel" TextColor="White" FontSize="14"
+                   BackgroundColor="#5B8DEF" BorderRadius="8" Padding="14,9" HorizontalOptions="Start"/>
+    </w:WStackLayout>
+
+</w:WStackLayout>

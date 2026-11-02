@@ -1,0 +1,418 @@
+﻿<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            overflow: hidden;
+            -webkit-user-drag: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -moz-box-sizing: border-box;
+            -webkit-box-sizing: border-box;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+        }
+
+        html, body {
+            touch-action: manipulation;
+        }
+
+        *:focus {
+            outline: none;
+        }
+
+        input, textarea, [contenteditable="true"], [contenteditable=""] {
+            -webkit-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+
+            input::placeholder, textarea::placeholder {
+                color: var(--placeholder-color);
+            }
+
+        textarea {
+            overflow: auto; /* the global overflow:hidden would make editors unscrollable */
+            resize: none;
+        }
+
+        {defaultStyle}
+    </style>
+
+    <script>
+const retMeasure = 0;
+const retAnimate = 1;
+
+const blobs = new Map();
+
+const resizeObservers = new Map();
+
+document.addEventListener('scroll', (e) => {
+    const tag = e.target.tagName;
+    if (tag === 'W-SCROLL' || tag.charCodeAt(0) !== 87 || tag.charCodeAt(1) !== 45) return;
+    e.target.scrollTop = 0;
+    e.target.scrollLeft = 0;
+}, true);
+
+function _onresize(element) {
+    const rect = element.getBoundingClientRect();
+    sendMsg(`${element.id.slice(1)}_e_19_${rect.x}_${rect.y}_${rect.width}_${rect.height}_${element.scrollLeft}_${element.scrollTop}_${element.scrollWidth}_${element.scrollHeight}`);
+}
+
+function observeElement(id) {
+    const element = document.getElementById(id);
+    if (!element) return;
+
+    const observer = new ResizeObserver(entries => {
+        _onresize(entries[0].target);
+    });
+
+    observer.observe(element, { box: 'border-box' });
+    resizeObservers.set(id, observer);
+}
+
+function unobserveElement(id) {
+    const observer = resizeObservers.get(id);
+    if (!observer) return;
+
+    observer.disconnect();
+    resizeObservers.delete(id);
+}
+
+function base64ToArray(data) {
+    const binaryData = atob(data);
+    const binaryLength = binaryData.length;
+    const arrayBuffer = new Uint8Array(binaryLength);
+    for (let i = 0; i < binaryLength; i++) {
+        arrayBuffer[i] = binaryData.charCodeAt(i);
+    }
+    return arrayBuffer;
+}
+
+function addFontLink(url) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = fromBase64(url);
+    document.head.appendChild(link);
+}
+
+async function addFont(name, data, ext, weight, style) {
+    let format;
+    switch (ext) {
+        case "woff2": format = "woff2"; break;
+        case "woff": format = "woff"; break;
+        case "ttf": format = "truetype"; break;
+        case "otf": format = "opentype"; break;
+    }
+    const bytes = base64ToArray(data);
+
+    const blob = new Blob([bytes], { type: `font/${ext}` });
+    const url = URL.createObjectURL(blob);
+
+    try {
+        const face = new FontFace(name, `url(${url}) format("${format}")`, {
+            weight,
+            style,
+        });
+        await face.load();
+        document.fonts.add(face);
+        await document.fonts.ready;
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+function loadImage(data) {
+    const arrayBuffer = base64ToArray(data);
+    const blob = new Blob([arrayBuffer], { type: 'image/*' });
+    var res = URL.createObjectURL(blob);
+    blobs.set(res, blob);
+    return res;
+}
+
+function unloadImage(url) {
+    URL.revokeObjectURL(url);
+    blobs.delete(url);
+}
+
+function toBase64(str) {
+    const utf8 = new TextEncoder().encode(str);
+    let binary = "";
+    utf8.forEach(b => binary += String.fromCharCode(b));
+    return btoa(binary);
+}
+
+function fromBase64(base64) {
+    const binary = atob(base64);
+    const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+}
+
+function cancelAnimations(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        const animations = element.getAnimations();
+        animations.forEach(animation => animation.cancel());
+    }
+}
+
+function animate(id, keyframes, options) {
+    const element = document.getElementById(id);
+    if (element) {
+        const anim = element.animate(keyframes, options);
+        anim.finished.finally(() => {
+            if (anim.playState !== 'idle') {
+                anim.commitStyles();
+            }
+            anim.cancel();
+        });
+    }
+}
+
+function animateAsync(id, retId, keyframes, options) {
+    const element = document.getElementById(id);
+    if (element) {
+        const anim = element.animate(keyframes, options);
+        anim.finished.finally(() => {
+            if (anim.playState !== 'idle' && element.isConnected && element.offsetParent !== null) {
+                anim.commitStyles();
+            }
+            anim.cancel();
+            const rect = element.getBoundingClientRect();
+            sendMsg(`${element.id.slice(1)}_r_${retAnimate}_${retId}_${rect.x}_${rect.y}_${rect.width}_${rect.height}_${element.scrollLeft}_${element.scrollTop}_${element.scrollWidth}_${element.scrollHeight}`);
+        });
+    }
+}
+
+function updateBody(content) {
+    document.body.innerHTML = content;
+}
+
+function removeViews(ids) {
+    document.querySelectorAll(ids).forEach(element => element.remove());
+}
+
+function updateViewStyle(id, classes, content) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.className = classes;
+        element.style.cssText = content;
+    }
+}
+
+function updateView(id, content) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.outerHTML = content;
+    }
+}
+
+function addViews(id, content) {
+    const element = document.getElementById(id);
+    if (element) {
+        const range = document.createRange();
+        range.selectNode(element);
+        const fragment = range.createContextualFragment(content);
+        element.appendChild(fragment);
+    }
+}
+
+function prependViews(id, content) {
+    const element = document.getElementById(id);
+    if (element) {
+        const range = document.createRange();
+        range.selectNode(element);
+        const fragment = range.createContextualFragment(content);
+        element.prepend(fragment);
+    }
+}
+
+function measureChildren(id, version) {
+    const element = document.getElementById(id);
+    if (!element) return;
+    const scroller = element.parentElement;
+    let msg = `${element.id.slice(1)}_r_2_${version}_${scroller.scrollTop}_${scroller.scrollLeft}_${scroller.clientWidth}_${scroller.clientHeight}_${element.children.length}`;
+    for (const child of element.children) {
+        const rect = child.getBoundingClientRect();
+        msg += `_${rect.width}_${rect.height}`;
+    }
+    sendMsg(msg);
+}
+
+function loadStyle(id, data) {
+    let element = document.getElementById(id);
+    if (!element) {
+        element = document.createElement("style");
+        element.type = "text/css";
+        element.id = id;
+        document.head.appendChild(element);
+    }
+
+    element.textContent = fromBase64(data);
+}
+
+function unloadStyle(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.parentNode.removeChild(element);
+    }
+}
+
+async function loadScript(data) {
+    const blob = new Blob([fromBase64(data)], { type: "text/javascript" });
+    const url = URL.createObjectURL(blob);
+
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = () => URL.revokeObjectURL(url);
+    s.onerror = () => URL.revokeObjectURL(url);
+    document.head.appendChild(s);
+}
+
+async function loadScriptModule(id, data) {
+    const blob = new Blob([fromBase64(data)], { type: "text/javascript" });
+    const url = URL.createObjectURL(blob);
+
+    try {
+        const mod = await import(url);
+        globalThis[id] = mod;
+    }
+    finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+function measure(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        const rect = element.getBoundingClientRect();
+        sendMsg(`${element.id.slice(1)}_r_${retMeasure}_${rect.x}_${rect.y}_${rect.width}_${rect.height}_${element.scrollLeft}_${element.scrollTop}_${element.scrollWidth}_${element.scrollHeight}`);
+    }
+}
+
+function focus(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.focus();
+    }
+}
+
+function unfocus(id) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.blur();
+    }
+}
+
+function setEnabled(id, on) {
+    const element = document.getElementById(id);
+    if (element) {
+        if (on) {
+            element.removeAttribute('disabled');
+        }
+        else {
+            element.setAttribute('disabled', '');
+        }
+    }
+}
+
+function setValue(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.value = fromBase64(value);
+    }
+}
+
+function setSelection(id, start, end) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.setSelectionRange(start, end);
+    }
+}
+
+function scrollTo(id, x, y, type) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.scrollTo({
+            top: y,
+            left: x,
+            behavior: type
+        });
+    }
+}
+
+function scrollIntoView(id, a, b, c) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.scrollIntoView({
+            behavior: a,
+            block: b,
+            inline: c
+        });
+    }
+}
+
+function sendMsg(msg) {
+    if (window.chrome?.webview) {
+        window.chrome.webview.postMessage(msg);
+    }
+    else if (window.webkit?.messageHandlers?.mawi) {
+        window.webkit.messageHandlers.mawi.postMessage(msg);
+    }
+    else {
+        wRootHost.sendMessage(msg);
+    }
+}
+
+function updateEvents(id, content) {
+    const element = document.getElementById(id);
+    if (element) {
+        {eventupdates}
+    }
+}
+
+const scrollBusyElements = new Set();
+
+function _onscroll(event) {
+    event.stopPropagation();
+    const element = event.currentTarget;
+    if (!scrollBusyElements.has(element)) {
+        scrollBusyElements.add(element);
+        requestAnimationFrame(() => {
+            const rect = element.getBoundingClientRect();
+            sendMsg(`${element.id.slice(1)}_e_17_${rect.x}_${rect.y}_${rect.width}_${rect.height}_${element.scrollLeft}_${element.scrollTop}_${element.scrollWidth}_${element.scrollHeight}`);
+            scrollBusyElements.delete(element);
+        });
+    }
+}
+
+function _onpointerdown(event) {
+    event.stopPropagation();
+    if (event.currentTarget.closest('[data-no-focus]')) {
+        event.preventDefault();
+    }
+    const element = event.currentTarget;
+    const rect = element.getBoundingClientRect();
+    sendMsg(`${element.id.slice(1)}_e_2_${rect.x}_${rect.y}_${rect.width}_${rect.height}_${element.scrollLeft}_${element.scrollTop}_${element.scrollWidth}_${element.scrollHeight}_${(event.button ?? '0')}_${(event.altKey ? '1' : '0')}_${(event.ctrlKey ? '1' : '0')}_${(event.shiftKey ? '1' : '0')}_${(event.metaKey ? '1' : '0')}_${(event.clientX ?? '0')}_${(event.clientY ?? '0')}_${(event.offsetX ?? '0')}_${(event.offsetY ?? '0')}`);
+}
+
+function checkBody() {
+    const bodies = document.getElementsByTagName('body');
+    if (bodies.length > 1) return 1;
+    if (bodies[0] && bodies[0].children.length > 1) return 2;
+    return 0;
+}
+
+{eventscripts}
+
+    </script>
+</head>
+<body style="width:100vw;height:100vh;display:grid;{bodystyle}">
+
+<script>window.__mawiReady = 1;</script>
+</body>
+</html>
